@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{ profile.username }}</title>
+    <style>
+      body {
+        font-family: Arial;
+        max-width: 400px;
+        margin: auto;
+        text-align: center;
+      }
+      img {
+        border-radius: 50%;
+        width: 150px;
+        height: 150px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>{{ profile.full_name }} (@{{ profile.username }})</h2>
+    <img
+      src="{{ url_for('static', filename=profile.profile_pic_filename)}}"
+      alt="Profile Pic"
+    />
+    <p>{{ profile.biography }}</p>
+    <p>
+      Posts: {{ profile.edge_owner_to_timeline_media.count }} | Followers: {{
+      profile.edge_followed_by.count }} | Following: {{
+      profile.edge_follow.count }}
+    </p>
+
+    <form action="/swipe/{{ index }}/left" method="get" style="display: inline">
+      <button type="submit">⬅ Reject</button>
+    </form>
+    <form
+      action="/swipe/{{ index }}/right"
+      method="get"
+      style="display: inline"
+    >
+      <button type="submit">➡ Accept</button>
+    </form>
+
+    <p>{{ index + 1 }} / {{ total }}</p>
+  </body>
+</html>
