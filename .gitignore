@@ -4,3 +4,5 @@ __pycache__/
 test*
 static/*
 *.json
+!header_templates.json
+!local_settings_example.json

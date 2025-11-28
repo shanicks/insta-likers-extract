@@ -1,0 +1,60 @@
+{
+  "media_likers_headers": {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Accept-Encoding": "gzip, deflate, br",
+    "X-CSRFToken": "",
+    "X-IG-App-ID": "936619743392459",
+    "X-ASBD-ID": "359341",
+    "X-IG-WWW-Claim": "",
+    "Cookie": "",
+    "X-Web-Session-ID": "bx6wd1:id03lb:ld0orq",
+    "X-Requested-With": "XMLHttpRequest",
+    "Alt-Used": "www.instagram.com",
+    "Connection": "keep-alive",
+    "Referer": "https://www.instagram.com/p/DQRZrddDN0y/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "Priority": "u=0",
+    "TE": "trailers"
+  },
+  "profile_query_headers": {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "X-FB-Friendly-Name": "PolarisProfilePageContentQuery",
+    "X-BLOKS-VERSION-ID": "e931ff03adc522742d788ba659da2ded4fb760f51c8576b5cd93cdaf3987e4b0",
+    "X-CSRFToken": "",
+    "X-IG-App-ID": "936619743392459",
+    "X-Root-Field-Name": "fetch__XDTUserDict",
+    "X-FB-LSD": "",
+    "X-ASBD-ID": "359341",
+    "Origin": "https://www.instagram.com",
+    "Alt-Used": "www.instagram.com",
+    "Connection": "keep-alive",
+    "Referer": "",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "TE": "trailers",
+    "Cookie": ""
+  },
+  "profile_query_payload": {
+    "fb_api_caller_class": "RelayModern",
+    "fb_api_req_friendly_name": "PolarisProfilePageContentQuery",
+    "variables": {
+      "enable_integrity_filters": true,
+      "id": "__USER_ID__",
+      "render_surface": "PROFILE",
+      "__relay_internal__pv__PolarisProjectCannesEnabledrelayprovider": true,
+      "__relay_internal__pv__PolarisProjectCannesLoggedInEnabledrelayprovider": true,
+      "__relay_internal__pv__PolarisCannesGuardianExperienceEnabledrelayprovider": true,
+      "__relay_internal__pv__PolarisCASB976ProfileEnabledrelayprovider": false,
+      "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider": false
+    },
+    "doc_id": "25585291164389315"
+  }
+}
