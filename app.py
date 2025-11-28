@@ -93,7 +93,7 @@ def import_reel():
         return {"error": "bad json"}, 400
     data = request.json
     reel_url = data.get("url")
-
+    print("Received reel:", reel_url)
     if not reel_url:
         return {"status": "error", "error": "url missing"}
 
@@ -102,7 +102,7 @@ def import_reel():
     try:
         import re
 
-        m = re.search(r"(?:reel|p)/([A-Za-z0-9_-]+)", url)
+        m = re.search(r"(?:reel|p)/([A-Za-z0-9_-]+)", reel_url)
         if not m:
             print("regex failed!")
             return {"error": "Invalid reel URL"}, 400
