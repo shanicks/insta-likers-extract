@@ -34,34 +34,23 @@ def send_alert_email(message, cookies):
         )
 
 
+def get_headers(name):
+    with open("header_templates.json") as f:
+        headers = json.load(f)
+    return headers[name].copy()
+
+
 def lambda_handler(event, context):
     cookies = get_instagram_cookies()
 
     url = f"https://www.instagram.com/api/v1/media/{cookies['media_id']}/likers/"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
-        "Accept": "*/*",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Accept-Encoding": "gzip, deflate, br",
-        "X-CSRFToken": cookies["csrftoken"],
-        "X-IG-App-ID": "936619743392459",
-        "X-ASBD-ID": "359341",
-        "X-IG-WWW-Claim": cookies.get("claim", ""),
-        "Cookie": f'csrftoken={cookies["csrftoken"]}; '
-        f'sessionid={cookies["sessionid"]}; '
-        f'ds_user_id={cookies["ds_user_id"]}',
-        "X-Web-Session-ID": "bx6wd1:id03lb:ld0orq",
-        "X-Requested-With": "XMLHttpRequest",
-        "Alt-Used": "www.instagram.com",
-        "Connection": "keep-alive",
-        "Referer": "https://www.instagram.com/p/DQRZrddDN0y/",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-origin",
-        "Priority": "u=0",
-        "TE": "trailers",
-    }
+    headers = get_headers("media_likers_headers")
+    headers["X-CSRFToken"] = cookies["csrftoken"]
+    headers["X-IG-WWW-Claim"] = cookies.get("claim", "")
+    headers["Cookie"] = (
+        f'csrftoken={cookies["csrftoken"]}; sessionid={cookies["sessionid"]}; ds_user_id={cookies["ds_user_id"]}'
+    )
 
     # IMPORTANT: don't auto-follow redirects
     response = requests.get(url, headers=headers, allow_redirects=False)
