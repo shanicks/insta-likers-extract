@@ -43,7 +43,7 @@ def get_headers(name):
 def lambda_handler(event, context):
     cookies = get_instagram_cookies()
 
-    url = f"https://www.instagram.com/api/v1/media/{cookies['media_id']}/likers/"
+    url = f"https://www.instagram.com/api/v1/media/{event['media_id']}/likers/"
 
     headers = get_headers("media_likers_headers")
     headers["X-CSRFToken"] = cookies["csrftoken"]

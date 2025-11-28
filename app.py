@@ -1,9 +1,10 @@
-from flask import Flask, render_template, redirect
+from flask import Flask, render_template, redirect, request
 import json
 import requests
 import os
 from datetime import datetime
 from profile_scraper import lambda_handler
+from lambda_function import lambda_handler
 
 app = Flask(__name__)
 
@@ -74,6 +75,30 @@ def decrement_swipe():
 @app.route("/")
 def home():
     return redirect("/profile")
+
+
+@app.route("/import", methods=["POST"])
+def import_reel():
+    data = request.json
+    reel_url = data.get("url")
+
+    if not reel_url:
+        return {"status": "error", "error": "url missing"}
+
+    # Extract shortcode from the URL
+    # Example: https://www.instagram.com/reel/Cx9LmPpL1xy/
+    try:
+        shortcode = reel_url.rstrip("/").split("/")[-1]
+    except:
+        return {"status": "error", "error": "bad reel url"}
+
+    # Call your scraper
+    print("Importing reel:", reel_url)
+
+    # Modify your scraper to accept shortcode as media_id if needed
+    res = lambda_handler({"media_id": shortcode}, None)
+
+    return res
 
 
 @app.route("/profile")
