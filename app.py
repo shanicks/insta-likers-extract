@@ -88,7 +88,16 @@ def import_reel():
     # Extract shortcode from the URL
     # Example: https://www.instagram.com/reel/Cx9LmPpL1xy/
     try:
-        shortcode = reel_url.rstrip("/").split("/")[-1]
+        import re
+
+        m = re.search(r"(?:reel|p)/([A-Za-z0-9_-]+)", url)
+        if not m:
+            return {"error": "Invalid reel URL"}, 400
+
+        shortcode = m.group(1)
+
+        print(f"Extracted shortcode: {shortcode}")
+        # shortcode = reel_url.rstrip("/").split("/")[-1]
     except:
         return {"status": "error", "error": "bad reel url"}
 
