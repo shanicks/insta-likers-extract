@@ -95,7 +95,7 @@
   </head>
 
   <body>
-    <div class="card">
+    <div id="card" class="card">
       <img
         class="profile-pic"
         src="{{ url_for('static', filename=profile.profile_pic_filename) }}"
@@ -108,22 +108,69 @@
       <p class="bio">{{ profile.biography }}</p>
 
       <div class="stats">
-        Posts: {{ profile.edge_owner_to_timeline_media.count }} |
-        Followers: {{ profile.edge_followed_by.count }} |
-        Following: {{ profile.edge_follow.count }}
+        Posts: {{ profile.edge_owner_to_timeline_media.count }} | Followers: {{
+        profile.edge_followed_by.count }} | Following: {{
+        profile.edge_follow.count }}
       </div>
 
       <div class="buttons">
-        <form action="/swipe/{{ index }}/left" method="get" style="width: 48%">
+        <form action="/swipe/left" method="get" style="width: 48%">
           <button class="reject" type="submit">❌ Reject</button>
         </form>
 
-        <form action="/swipe/{{ index }}/right" method="get" style="width: 48%">
+        <form action="/swipe/right" method="get" style="width: 48%">
           <button class="accept" type="submit">❤️ Like</button>
         </form>
       </div>
 
       <div class="counter">{{ index + 1 }} / {{ total }}</div>
     </div>
+    <script>
+      let card = document.getElementById("card");
+      let startX = 0;
+      let currentX = 0;
+      let dragging = false;
+
+      card.addEventListener("touchstart", (e) => {
+        startX = e.touches[0].clientX;
+        dragging = true;
+      });
+
+      card.addEventListener("touchmove", (e) => {
+        if (!dragging) return;
+
+        currentX = e.touches[0].clientX - startX;
+
+        // Move card with finger
+        card.style.transform = `translateX(${currentX}px) rotate(${
+          currentX * 0.05
+        }deg)`;
+      });
+
+      card.addEventListener("touchend", (e) => {
+        dragging = false;
+
+        if (Math.abs(currentX) > 100) {
+          // SWIPE RIGHT
+          if (currentX > 0) {
+            card.style.transition = "0.3s";
+            card.style.transform = "translateX(500px) rotate(20deg)";
+            setTimeout(() => (window.location.href = "/swipe/right"), 250);
+          }
+          // SWIPE LEFT
+          else {
+            card.style.transition = "0.3s";
+            card.style.transform = "translateX(-500px) rotate(-20deg)";
+            setTimeout(() => (window.location.href = "/swipe/left"), 250);
+          }
+        } else {
+          // Not enough swipe → snap back
+          card.style.transition = "0.3s";
+          card.style.transform = "translateX(0px) rotate(0deg)";
+        }
+
+        currentX = 0;
+      });
+    </script>
   </body>
 </html>
