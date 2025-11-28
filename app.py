@@ -93,7 +93,7 @@ def import_reel():
         return {"status": "error", "error": "bad reel url"}
 
     # Call your scraper
-    print("Importing reel:", reel_url)
+    print("Importing reel:", reel_url, shortcode)
 
     # Modify your scraper to accept shortcode as media_id if needed
     res = lambda_handler({"media_id": shortcode}, None)
