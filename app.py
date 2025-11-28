@@ -79,6 +79,18 @@ def home():
 
 @app.route("/import", methods=["POST"])
 def import_reel():
+    try:
+        raw = request.data.decode("utf-8")
+        print("RAW BODY:", raw)
+    except Exception as e:
+        print("FAILED TO READ BODY:", e)
+
+    try:
+        data = request.get_json(force=True, silent=False)
+        print("PARSED JSON:", data)
+    except Exception as e:
+        print("JSON PARSE ERROR:", e)
+        return {"error": "bad json"}, 400
     data = request.json
     reel_url = data.get("url")
 
