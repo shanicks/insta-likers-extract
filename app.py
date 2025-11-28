@@ -2,15 +2,23 @@ from flask import Flask, render_template, redirect, request
 import json
 import requests
 import os
+import base64
 from datetime import datetime
 from profile_scraper import lambda_handler
 from lambda_function import likers_extract
 
 app = Flask(__name__)
 
+
 # -------------------------------
 # Helpers
 # -------------------------------
+def shortcode_to_media_id(shortcode: str) -> int:
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    num = 0
+    for char in shortcode:
+        num = num * 64 + alphabet.index(char)
+    return num
 
 
 def load_json(path, default):
@@ -110,15 +118,17 @@ def import_reel():
         shortcode = m.group(1)
 
         print(f"Extracted shortcode: {shortcode}")
+        media_id = shortcode_to_media_id(shortcode)
+        print(f"Converted media_id: {media_id}")
         # shortcode = reel_url.rstrip("/").split("/")[-1]
     except:
         return {"status": "error", "error": "bad reel url"}
 
     # Call your scraper
-    print("Importing reel:", reel_url, shortcode)
+    # print("Importing reel:", reel_url, shortcode)
 
     # Modify your scraper to accept shortcode as media_id if needed
-    res = likers_extract({"media_id": shortcode}, None)
+    res = likers_extract({"media_id": media_id}, None)
 
     return res
 
