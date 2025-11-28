@@ -18,20 +18,20 @@ def get_instagram_cookies():
         return json.loads(secret)
 
 
-def send_alert_email(message):
+def send_alert_email(message, cookies):
     if LOCAL:
         print("[LOCAL] Email alert:", message)
         return
-
-    ses = boto3.client("ses")
-    ses.send_email(
-        Source=f"{cookies['media_id']}",
-        Destination={"ToAddresses": [f"{cookies['media_id']}"]},
-        Message={
-            "Subject": {"Data": "Instagram Cookies Expired"},
-            "Body": {"Text": {"Data": message}},
-        },
-    )
+    else:
+        ses = boto3.client("ses")
+        ses.send_email(
+            Source=f"{cookies['media_id']}",
+            Destination={"ToAddresses": [f"{cookies['media_id']}"]},
+            Message={
+                "Subject": {"Data": "Instagram Cookies Expired"},
+                "Body": {"Text": {"Data": message}},
+            },
+        )
 
 
 def lambda_handler(event, context):
