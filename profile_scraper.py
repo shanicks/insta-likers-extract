@@ -33,7 +33,7 @@ def lambda_handler(event, context):
         "X-CSRFToken": cookies["csrftoken"],
         "X-IG-App-ID": "936619743392459",
         "X-Root-Field-Name": "fetch__XDTUserDict",
-        "X-FB-LSD": cookies.get("lsd", "vum9kzmW-Yud3Iuagl8mmo"),
+        "X-FB-LSD": cookies.get("lsd", ""),
         "X-ASBD-ID": "359341",
         "Origin": "https://www.instagram.com",
         "Alt-Used": "www.instagram.com",
@@ -82,9 +82,7 @@ def lambda_handler(event, context):
 
 if __name__ == "__main__" and LOCAL:
 
-    res = lambda_handler(
-        {"username": "akankshayadav000001", "user_id": "53563587329"}, None
-    )
+    res = lambda_handler({"username": "username", "user_id": "id"}, None)
 
     # print(
     #     "image_url:",
