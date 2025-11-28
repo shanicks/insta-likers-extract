@@ -1,101 +1,220 @@
 from flask import Flask, render_template, redirect
 import json
-import html
 import requests
 import os
+from datetime import datetime
 from profile_scraper import lambda_handler
 
 app = Flask(__name__)
 
-# Load user list and swipe data
-with open("user_list.json") as f:
-    users = json.load(f)
-
-try:
-    with open("swipe_data.json") as f:
-        swipe_data = json.load(f)
-except FileNotFoundError:
-    swipe_data = {}
+# -------------------------------
+# Helpers
+# -------------------------------
 
 
-@app.route("/profile/<int:index>")
-def show_profile(index):
-    if index >= len(users):
-        return "No more profiles!"
+def load_json(path, default):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except:
+        return default
 
-    username = users[index]["username"]
+
+def save_json(path, data):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+# -------------------------------
+# Load persistent state
+# -------------------------------
+
+pending = load_json("user_list.json", [])  # queue of users to swipe
+swipe_data = load_json("swipe_data.json", {})  # username -> left/right
+state = load_json("state.json", {"last": None})  # for undo
+daily = load_json("daily_swipes.json", {"date": "", "count": 0})
+
+
+# -------------------------------
+# Daily swipe limit logic
+# -------------------------------
+
+SWIPE_LIMIT = 100
+
+
+def check_daily_reset():
+    today = datetime.now().strftime("%Y-%m-%d")
+    if daily["date"] != today:
+        daily["date"] = today
+        daily["count"] = 0
+        save_json("daily_swipes.json", daily)
+
+
+def can_swipe():
+    check_daily_reset()
+    return daily["count"] < SWIPE_LIMIT
+
+
+def increment_swipe():
+    daily["count"] += 1
+    save_json("daily_swipes.json", daily)
+
+
+def decrement_swipe():
+    if daily["count"] > 0:
+        daily["count"] -= 1
+        save_json("daily_swipes.json", daily)
+
+
+# -------------------------------
+# Main screen
+# -------------------------------
+
+
+@app.route("/")
+def home():
+    return redirect("/profile")
+
+
+@app.route("/profile")
+def show_profile():
+    check_daily_reset()
+
+    if not pending:
+        return "No profiles left! Share a reel to load more."
+
+    user = pending[0]  # next in queue
 
     event = {
-        "username": users[index]["username"],
-        "user_id": users[index]["user_id"],
-    }  # numeric IG ID
+        "username": user["username"],
+        "user_id": user["user_id"],
+    }
+
     res = lambda_handler(event, None)
-    # print("prooooooooo:", profile)
     if res["status"] != "ok":
         return f"Error fetching profile: {res.get('error')}"
 
-    user = res["body"]  # the "user" dict from GraphQL
+    user_data = res["body"]
+
+    # Download profile picture
     url = (
-        user.get("hd_profile_pic_url_info", {})
+        user_data.get("hd_profile_pic_url_info", {})
         .get("url", "")
         .replace("\\u0026", "&")
         .replace("&amp", "&")
         .strip('"')
         .strip()
     )
+
     r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
     if r.status_code != 200:
         print("Failed to fetch image")
-        return None
-    filename = users[index]["user_id"] + ".jpg"
-    # Save to static folder
+        return "Image fetch error"
+
+    filename = f"{user['user_id']}.jpg"
     static_path = os.path.join("static", filename)
     with open(static_path, "wb") as f:
         f.write(r.content)
 
-    followers = user.get("follower_count", 0)
-    following = user.get("following_count", 0)
+    followers = user_data.get("follower_count", 0)
+    following = user_data.get("following_count", 0)
 
+    # Apply your criteria
     if followers >= 1000 or (followers - following) > 100:
-        print(f"Skipping {username} due to follower/following criteria")
-        return redirect(f"/profile/{index + 1}")
+        # Skip silently
+        pending.pop(0)
+        save_json("user_list.json", pending)
+        return redirect("/profile")
 
     profile_data = {
-        "edge_owner_to_timeline_media": {"count": user.get("media_count", 0)},
+        "username": user_data.get("username", ""),
+        "full_name": user_data.get("full_name", ""),
+        "biography": user_data.get("biography", ""),
+        "edge_owner_to_timeline_media": {"count": user_data.get("media_count", 0)},
         "edge_followed_by": {"count": followers},
         "edge_follow": {"count": following},
-        "full_name": user.get("full_name", ""),
-        "biography": user.get("biography", ""),
         "profile_pic_filename": filename,
-        "username": user.get("username", ""),
+        "remaining": len(pending),
+        "limit_left": SWIPE_LIMIT - daily["count"],
     }
-    # profile_data = {
-    #     "edge_owner_to_timeline_media": {"count": user.get("media_count", 0)},
-    #     "edge_followed_by": {"count": user.get("follower_count", 0)},
-    #     "edge_follow": {"count": user.get("following_count", 0)},
-    #     "full_name": user.get("full_name", ""),
-    #     "biography": user.get("biography", ""),
-    #     # "profile_pic_url": html.unescape(
-    #     #     user.get("hd_profile_pic_url_info", {}).get("url", "")
-    #     # ),
-    #     "profile_pic_filename": filename,
-    #     "username": user.get("username", ""),
-    # }
 
     return render_template(
-        "profile.html", profile=profile_data, index=index, total=len(users)
+        "profile2.html", profile=profile_data, index=0, total=len(pending)
     )
 
 
-@app.route("/swipe/<int:index>/<direction>")
-def swipe(index, direction):
-    username = users[index]["username"]
-    swipe_data[username] = direction
-    with open("swipe_data.json", "w") as f:
-        json.dump(swipe_data, f, indent=2)
+# -------------------------------
+# Swipe actions
+# -------------------------------
 
-    return redirect(f"/profile/{index + 1}")
 
+@app.route("/swipe/<direction>")
+def swipe(direction):
+    if not pending:
+        return redirect("/profile")
+
+    check_daily_reset()
+
+    if not can_swipe():
+        return "Daily swipe limit reached (100). Come back tomorrow."
+
+    # Pop the front of the queue
+    user = pending.pop(0)
+    save_json("user_list.json", pending)
+
+    # Save swipe result
+    swipe_data[user["username"]] = direction
+    save_json("swipe_data.json", swipe_data)
+
+    # Save last action for undo
+    state["last"] = {
+        "username": user["username"],
+        "user_id": user["user_id"],
+        "direction": direction,
+    }
+    save_json("state.json", state)
+
+    # Increment daily count
+    increment_swipe()
+
+    return redirect("/profile")
+
+
+# -------------------------------
+# Undo swipe
+# -------------------------------
+
+
+@app.route("/undo")
+def undo():
+    if not state["last"]:
+        return redirect("/profile")
+
+    last = state["last"]
+    username = last["username"]
+
+    # Remove swipe entry
+    if username in swipe_data:
+        del swipe_data[username]
+        save_json("swipe_data.json", swipe_data)
+
+    # Reinsert to front
+    pending.insert(0, {"username": username, "user_id": last["user_id"]})
+    save_json("user_list.json", pending)
+
+    # Fix daily counter
+    decrement_swipe()
+
+    # Clear undo state
+    state["last"] = None
+    save_json("state.json", state)
+
+    return redirect("/profile")
+
+
+# -------------------------------
+# Start
+# -------------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
