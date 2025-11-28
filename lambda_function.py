@@ -40,7 +40,7 @@ def get_headers(name):
     return headers[name].copy()
 
 
-def lambda_handler(event, context):
+def likers_extract(event, context):
     cookies = get_instagram_cookies()
 
     url = f"https://www.instagram.com/api/v1/media/{event['media_id']}/likers/"
@@ -66,7 +66,7 @@ def lambda_handler(event, context):
 #   LOCAL=1 python3 lambda_function.py
 if __name__ == "__main__" and LOCAL:
     event = {}
-    res = lambda_handler(event, None)
+    res = likers_extract(event, None)
 
     if res["status"] == "ok":
         # try to parse JSON

@@ -4,7 +4,7 @@ import requests
 import os
 from datetime import datetime
 from profile_scraper import lambda_handler
-from lambda_function import lambda_handler
+from lambda_function import likers_extract
 
 app = Flask(__name__)
 
@@ -118,7 +118,7 @@ def import_reel():
     print("Importing reel:", reel_url, shortcode)
 
     # Modify your scraper to accept shortcode as media_id if needed
-    res = lambda_handler({"media_id": shortcode}, None)
+    res = likers_extract({"media_id": shortcode}, None)
 
     return res
 
