@@ -130,6 +130,28 @@ def import_reel():
     # Modify your scraper to accept shortcode as media_id if needed
     res = likers_extract({"media_id": media_id}, None)
 
+    if res["status"] == "ok":
+        # try to parse JSON
+        try:
+            data = json.loads(res["body"])
+            likers = data.get("users", [])  # adjust key if different in response
+            # build a list of dicts with only usernames
+            user_list = [
+                {
+                    "username": u["username"],
+                    "is_private": u.get("is_private", False),
+                    "user_id": u["id"],
+                }
+                for u in likers
+                if u.get("is_private")
+            ]
+            # save to file
+            with open("user_list.json", "w") as f:
+                json.dump(user_list, f, indent=2)
+            print(f"Saved {len(user_list)} usernames to user_list.json")
+        except Exception as e:
+            print("Failed to parse likers JSON:", e)
+
     return res
 
 
