@@ -92,6 +92,7 @@ def import_reel():
 
         m = re.search(r"(?:reel|p)/([A-Za-z0-9_-]+)", url)
         if not m:
+            print("regex failed!")
             return {"error": "Invalid reel URL"}, 400
 
         shortcode = m.group(1)
