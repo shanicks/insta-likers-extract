@@ -1,11 +1,16 @@
 from flask import Flask, render_template, redirect, request
+import time
+from datetime import datetime
 import json
+from threading import Thread
 import requests
 import os
 import base64
 from datetime import datetime
 from profile_scraper import lambda_handler
 from lambda_function import likers_extract
+from utils import *
+from follow_worker import follow_worker
 
 app = Flask(__name__)
 
@@ -13,25 +18,6 @@ app = Flask(__name__)
 # -------------------------------
 # Helpers
 # -------------------------------
-def shortcode_to_media_id(shortcode: str) -> int:
-    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
-    num = 0
-    for char in shortcode:
-        num = num * 64 + alphabet.index(char)
-    return num
-
-
-def load_json(path, default):
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except:
-        return default
-
-
-def save_json(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
 
 
 # -------------------------------
@@ -49,30 +35,6 @@ daily = load_json("daily_swipes.json", {"date": "", "count": 0})
 # -------------------------------
 
 SWIPE_LIMIT = 100
-
-
-def check_daily_reset():
-    today = datetime.now().strftime("%Y-%m-%d")
-    if daily["date"] != today:
-        daily["date"] = today
-        daily["count"] = 0
-        save_json("daily_swipes.json", daily)
-
-
-def can_swipe():
-    check_daily_reset()
-    return daily["count"] < SWIPE_LIMIT
-
-
-def increment_swipe():
-    daily["count"] += 1
-    save_json("daily_swipes.json", daily)
-
-
-def decrement_swipe():
-    if daily["count"] > 0:
-        daily["count"] -= 1
-        save_json("daily_swipes.json", daily)
 
 
 # -------------------------------
@@ -132,25 +94,7 @@ def import_reel():
 
     if res["status"] == "ok":
         # try to parse JSON
-        try:
-            data = json.loads(res["body"])
-            likers = data.get("users", [])  # adjust key if different in response
-            # build a list of dicts with only usernames
-            user_list = [
-                {
-                    "username": u["username"],
-                    "is_private": u.get("is_private", False),
-                    "user_id": u["id"],
-                }
-                for u in likers
-                if u.get("is_private")
-            ]
-            # save to file
-            with open("user_list.json", "w") as f:
-                json.dump(user_list, f, indent=2)
-            print(f"Saved {len(user_list)} usernames to user_list.json")
-        except Exception as e:
-            print("Failed to parse likers JSON:", e)
+        save_user_list(res)
 
     return res
 
@@ -218,7 +162,7 @@ def show_profile():
     }
 
     return render_template(
-        "profile2.html", profile=profile_data, index=0, total=len(pending)
+        "profile3.html", profile=profile_data, index=0, total=len(pending)
     )
 
 
@@ -240,10 +184,27 @@ def swipe(direction):
     # Pop the front of the queue
     user = pending.pop(0)
     save_json("user_list.json", pending)
-
+    # Load existing array if file exists
+    if os.path.exists("swipe_data.json"):
+        with open("swipe_data.json", "r") as f:
+            try:
+                data = json.load(f)
+                if not isinstance(data, list):
+                    data = []  # if file exists but isn't a list
+            except json.JSONDecodeError:
+                data = []  # file exists but is empty or invalid
+    else:
+        data = []
     # Save swipe result
-    swipe_data[user["username"]] = direction
-    save_json("swipe_data.json", swipe_data)
+    swipe_data = {
+        "username": user["username"],
+        "user_id": user["user_id"],
+        "direction": direction,
+        "timestamp": int(datetime.now().timestamp()),
+    }
+    data.append(swipe_data)
+    # swipe_data[user["username"]] = direction
+    save_json("swipe_data.json", data)
 
     # Save last action for undo
     state["last"] = {
@@ -296,4 +257,7 @@ def undo():
 # -------------------------------
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    # Start the follow worker in background
+    # worker_thread = Thread(target=follow_worker, daemon=True)
+    # worker_thread.start()
+    app.run(host="0.0.0.0", port=5500, debug=True)

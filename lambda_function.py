@@ -2,42 +2,9 @@ import json
 import os
 import boto3
 import requests
+from utils import *
 
 LOCAL = os.environ.get("LOCAL", "0") == "1"
-
-
-def get_instagram_cookies():
-    if LOCAL:
-        # load from local file for easy testing
-        with open("local_settings.json") as f:
-            return json.load(f)
-
-    else:
-        secrets = boto3.client("secretsmanager")
-        secret = secrets.get_secret_value(SecretId="instagram_cookies")["SecretString"]
-        return json.loads(secret)
-
-
-def send_alert_email(message, cookies):
-    if LOCAL:
-        print("[LOCAL] Email alert:", message)
-        return
-    else:
-        ses = boto3.client("ses")
-        ses.send_email(
-            Source=f"{cookies['media_id']}",
-            Destination={"ToAddresses": [f"{cookies['media_id']}"]},
-            Message={
-                "Subject": {"Data": "Instagram Cookies Expired"},
-                "Body": {"Text": {"Data": message}},
-            },
-        )
-
-
-def get_headers(name):
-    with open("header_templates.json") as f:
-        headers = json.load(f)
-    return headers[name].copy()
 
 
 def likers_extract(event, context):
@@ -65,29 +32,11 @@ def likers_extract(event, context):
 # Allow local testing by running:
 #   LOCAL=1 python3 lambda_function.py
 if __name__ == "__main__" and LOCAL:
-    event = {}
+    media_id = shortcode_to_media_id("DNC0tV_JfLT")
+    event = {"media_id": media_id}
     res = likers_extract(event, None)
 
     if res["status"] == "ok":
         # try to parse JSON
-        try:
-            data = json.loads(res["body"])
-            likers = data.get("users", [])  # adjust key if different in response
-            # build a list of dicts with only usernames
-            user_list = [
-                {
-                    "username": u["username"],
-                    "is_private": u.get("is_private", False),
-                    "user_id": u["id"],
-                }
-                for u in likers
-                if u.get("is_private")
-            ]
-            # save to file
-            with open("user_list.json", "w") as f:
-                json.dump(user_list, f, indent=2)
-            print(f"Saved {len(user_list)} usernames to user_list.json")
-        except Exception as e:
-            print("Failed to parse likers JSON:", e)
-    # event = {}
+        save_user_list(res)
     # print(lambda_handler(event, None))

@@ -56,5 +56,31 @@
       "__relay_internal__pv__PolarisRepostsConsumptionEnabledrelayprovider": false
     },
     "doc_id": "25585291164389315"
+  },
+  "send_follow_headers": {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:145.0) Gecko/20100101 Firefox/145.0",
+    "Accept": "*/*",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "X-FB-Friendly-Name": "usePolarisFollowMutation",
+    "X-BLOKS-VERSION-ID": "e931ff03adc522742d788ba659da2ded4fb760f51c8576b5cd93cdaf3987e4b0",
+    "X-IG-App-ID": "936619743392459",
+    "X-Root-Field-Name": "xdt_create_friendship",
+    "X-ASBD-ID": "359341",
+    "Origin": "https://www.instagram.com",
+    "Connection": "keep-alive",
+    "Referer": "https://www.instagram.com/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "TE": "trailers"
+  },
+  "send_follow_payload": {
+    "lsd": "",
+    "variables": {
+      "target_user_id": "",
+      "container_module": "profile"
+    },
+    "doc_id": "9740159112729312"
   }
 }
