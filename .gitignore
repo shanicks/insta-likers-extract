@@ -1,8 +1,6 @@
 venv/
-local_settings.json
 __pycache__/
-test*
-static/*
+local_settings.json
 *.json
 !header_templates.json
 !local_settings_example.json
