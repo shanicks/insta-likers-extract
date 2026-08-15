@@ -17,11 +17,10 @@ tab, filters them by follow-eligibility rules, and follows the ones that pass.
 handler.py                     Lambda entry point (handler.lambda_handler)
 insta_follower/
   config.py                    env detection, logging, FOLLOW_FILTER thresholds
-  storage.py                   JSON / S3-backed persistent state
   session.py                   cookies, headers, email alerts, media-id helper
   filters.py                   follow-eligibility filter + liker parsing
   instagram_api.py             IG endpoints: likers, reels, profile, follow
-  relationships.py             followers / mutual-followers graph (daily cache)
+  relationships.py             followers / mutual-followers graph
   flow.py                      orchestration: discover -> filter -> follow
 tools/
   parse_curl.py                import cookies from a copied browser cURL
@@ -46,7 +45,6 @@ Event fields (all optional): `max_follows`, `delay_min`, `delay_max`,
 `max_reel_calls`, `dry_run`.
 
 Environment variables:
-- `STATE_BUCKET` / `STATE_PREFIX` - S3 location for daily state (required on Lambda)
 - `LOG_LEVEL` - logging level (default INFO)
 - `HEADER_TEMPLATES`, `LOCAL_SETTINGS` - override default file paths
 

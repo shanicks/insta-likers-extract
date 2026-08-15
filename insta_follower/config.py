@@ -10,11 +10,6 @@ import logging
 # we're running locally.
 LOCAL = "AWS_LAMBDA_FUNCTION_NAME" not in os.environ
 
-# Persistent state store (see storage.py). On Lambda the filesystem is
-# read-only except /tmp (wiped on cold start), so daily state lives in S3.
-STATE_BUCKET = os.environ.get("STATE_BUCKET")
-STATE_PREFIX = os.environ.get("STATE_PREFIX", "insta-state/")
-
 # Path to the browser-captured header templates (relative to repo root).
 HEADER_TEMPLATES = os.environ.get("HEADER_TEMPLATES", "header_templates.json")
 

@@ -16,22 +16,13 @@ Only my-side lists are needed, so the private-account wall on C is avoided.
 """
 
 import time
-from datetime import datetime, timezone
 
 import requests
 
 from .config import get_logger
 from .session import get_instagram_cookies, get_headers, cookie_header, send_alert_email
-from .storage import load_state, save_state
 
 log = get_logger(__name__)
-
-# Persisted my-followers set, refreshed at most once per calendar day (UTC).
-FOLLOWERS_CACHE = "my_followers_cache.json"
-
-
-def _today():
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
 def _v1_headers(cookies, referer="https://www.instagram.com/"):
@@ -109,29 +100,12 @@ def get_followers(user_id, max_pages=None):
     return _paginate_users(url, cookies, max_pages)
 
 
-def get_my_followers(use_cache=True, max_pages=None):
-    """Return the set of user ids that follow ME.
-
-    The full crawl runs at most once per calendar day (UTC): if the cache was
-    written today, the stored set is reused. Pass use_cache=False to force a
-    refresh.
-    """
-    if use_cache:
-        cached = load_state(FOLLOWERS_CACHE, None)
-        if cached and cached.get("date") == _today():
-            log.info("my_followers served from cache (%d)", len(cached.get("followers", [])))
-            return set(cached.get("followers", []))
-
+def get_my_followers(max_pages=None):
+    """Return the set of user ids that follow ME, crawled fresh from the API."""
     cookies = get_instagram_cookies()
-    log.info("no cache for today; crawling my followers from API (this may take a while)...")
+    log.info("crawling my followers from API (this may take a while)...")
     followers = get_followers(cookies["ds_user_id"], max_pages)
-
-    if followers:
-        save_state(
-            FOLLOWERS_CACHE,
-            {"date": _today(), "ts": time.time(), "followers": sorted(followers)},
-        )
-        log.info("my_followers refreshed from API (%d)", len(followers))
+    log.info("my_followers crawled from API (%d)", len(followers))
     return followers
 
 
