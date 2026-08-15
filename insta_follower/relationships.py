@@ -20,7 +20,13 @@ import time
 import requests
 
 from .config import get_logger
-from .session import get_instagram_cookies, get_headers, cookie_header, send_alert_email
+from .session import (
+    get_instagram_cookies,
+    get_headers,
+    cookie_header,
+    send_alert_email,
+    update_cookies_from_response,
+)
 
 log = get_logger(__name__)
 
@@ -36,8 +42,13 @@ def _v1_headers(cookies, referer="https://www.instagram.com/"):
 
 
 def _paginate_users(url, cookies, max_pages=None, page_size=100):
-    """Walk a paginated v1 user list and return a set of string user ids."""
+    """Walk a paginated v1 user list.
+
+    Returns (users_set, expired_bool). `expired` is True if a request came
+    back as a login redirect (302), meaning the cookies are no longer valid.
+    """
     users = set()
+    expired = False
     max_id = None
     pages = 0
 
@@ -55,9 +66,12 @@ def _paginate_users(url, cookies, max_pages=None, page_size=100):
             log.error("%s request failed: %s", url, e)
             break
 
+        update_cookies_from_response(resp)
+
         if resp.status_code == 302:
             log.warning("%s -> 302 (cookies expired)", url)
             send_alert_email("Instagram cookies expired.", cookies)
+            expired = True
             break
         if resp.status_code != 200:
             log.warning("%s -> %s", url, resp.status_code)
@@ -90,23 +104,28 @@ def _paginate_users(url, cookies, max_pages=None, page_size=100):
             break
         time.sleep(1)  # be gentle with the API
 
-    return users
+    return users, expired
 
 
 def get_followers(user_id, max_pages=None):
-    """Return the set of user ids that follow `user_id`."""
+    """Return (followers_set, expired_bool) for accounts that follow `user_id`."""
     cookies = get_instagram_cookies()
     url = f"https://www.instagram.com/api/v1/friendships/{user_id}/followers/"
     return _paginate_users(url, cookies, max_pages)
 
 
 def get_my_followers(max_pages=None):
-    """Return the set of user ids that follow ME, crawled fresh from the API."""
+    """Crawl the accounts that follow ME.
+
+    Returns {"status": "ok"|"expired", "followers": set}.
+    """
     cookies = get_instagram_cookies()
     log.info("crawling my followers from API (this may take a while)...")
-    followers = get_followers(cookies["ds_user_id"], max_pages)
+    followers, expired = get_followers(cookies["ds_user_id"], max_pages)
+    if expired:
+        return {"status": "expired", "followers": followers}
     log.info("my_followers crawled from API (%d)", len(followers))
-    return followers
+    return {"status": "ok", "followers": followers}
 
 
 def get_mutual_followers(user_id, max_pages=None):
@@ -115,7 +134,8 @@ def get_mutual_followers(user_id, max_pages=None):
     """
     cookies = get_instagram_cookies()
     url = f"https://www.instagram.com/api/v1/friendships/{user_id}/mutual_followers/"
-    return _paginate_users(url, cookies, max_pages)
+    users, _expired = _paginate_users(url, cookies, max_pages)
+    return users
 
 
 def friend_connected(user_id, my_followers, max_pages=None):

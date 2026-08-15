@@ -14,6 +14,7 @@ from .session import (
     get_headers,
     cookie_header,
     send_alert_email,
+    update_cookies_from_response,
 )
 from .filters import follow_rejection_reason
 
@@ -41,6 +42,8 @@ def extract_likers(media_id):
     except requests.RequestException as e:
         log.error("likers request for media %s failed: %s", media_id, e)
         return {"status": "error", "error": str(e)}
+
+    update_cookies_from_response(response)
 
     if response.status_code == 302:
         log.warning("likers for media %s -> 302 (cookies expired)", media_id)
@@ -73,11 +76,19 @@ def next_reels():
     log.debug("fetching reels from clips tab")
     try:
         response = requests.post(
-            GRAPHQL_URL, headers=headers, data=payload, timeout=REQUEST_TIMEOUT
+            GRAPHQL_URL, headers=headers, data=payload,
+            allow_redirects=False, timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException as e:
         log.error("reels request failed: %s", e)
         return {"status": "error", "error": str(e)}
+
+    update_cookies_from_response(response)
+
+    if response.status_code == 302:
+        log.warning("reels request -> 302 (cookies expired)")
+        send_alert_email("Instagram cookies expired.", cookies)
+        return {"status": "expired"}
 
     if response.status_code != 200:
         log.warning("reels request -> %s", response.status_code)
@@ -125,6 +136,8 @@ def fetch_profile(username, user_id):
         log.error("profile request for %s failed: %s", username, e)
         return {"status": "error", "error": str(e)}
 
+    update_cookies_from_response(response)
+
     if response.status_code == 302:
         log.warning("profile %s -> 302 (cookies expired)", username)
         send_alert_email("Instagram cookies expired.", cookies)
@@ -171,17 +184,32 @@ def send_follow(target_user_id):
     log.debug("sending follow to %s", target_user_id)
     try:
         response = requests.post(
-            f"{GRAPHQL_URL}/", headers=headers, data=payload, timeout=REQUEST_TIMEOUT
+            f"{GRAPHQL_URL}/", headers=headers, data=payload,
+            allow_redirects=False, timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException as e:
         log.error("follow request for %s failed: %s", target_user_id, e)
         return {"status": "error", "error": str(e)}
+
+    update_cookies_from_response(response)
+
+    # Expired session / stale tokens: IG redirects to login or 401/403s.
+    if response.status_code in (302, 401, 403):
+        log.warning("follow %s -> %s (cookies expired)", target_user_id, response.status_code)
+        send_alert_email("Instagram cookies expired.", cookies)
+        return {"status": "expired"}
 
     try:
         data = response.json()
     except json.JSONDecodeError:
         log.error("follow %s -> %s but body was not JSON", target_user_id, response.status_code)
         return {"status": "error", "status_code": response.status_code}
+
+    # A login_required message can also come back with a 200.
+    if data.get("message") == "login_required" or data.get("require_login"):
+        log.warning("follow %s reported login_required (cookies expired)", target_user_id)
+        send_alert_email("Instagram cookies expired.", cookies)
+        return {"status": "expired"}
 
     # The GraphQL follow mutation reports the resulting relationship here.
     friendship = (data.get("data") or {}).get("xdt_create_friendship") or {}

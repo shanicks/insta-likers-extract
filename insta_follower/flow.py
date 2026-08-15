@@ -11,7 +11,7 @@ import time
 import random
 
 from .config import get_logger
-from .session import shortcode_to_media_id
+from .session import shortcode_to_media_id, persist_cookies, refresh_page_tokens
 from .filters import parse_likers
 from .instagram_api import extract_likers, next_reels, send_follow
 from .relationships import get_my_followers, friend_connected
@@ -20,7 +20,12 @@ log = get_logger(__name__)
 
 
 def collect_candidates(max_needed, max_reel_calls, my_followers):
-    """Gather up to `max_needed` follow-eligible, non-friend-connected users."""
+    """Gather up to `max_needed` follow-eligible, non-friend-connected users.
+
+    Returns {"status": "ok"|"expired", "candidates": [...]}. Status is
+    "expired" if any API call reported expired cookies, so the caller can
+    surface it instead of silently returning no candidates.
+    """
     candidates = []
     seen = set()
 
@@ -31,6 +36,8 @@ def collect_candidates(max_needed, max_reel_calls, my_followers):
         log.info("reel batch %d/%d (have %d/%d candidates)",
                  call + 1, max_reel_calls, len(candidates), max_needed)
         reels = next_reels()
+        if reels.get("status") == "expired":
+            return {"status": "expired", "candidates": candidates}
         if reels.get("status") != "ok":
             log.warning("stopping: next_reels failed: %s", reels.get("error"))
             break
@@ -42,6 +49,8 @@ def collect_candidates(max_needed, max_reel_calls, my_followers):
             media_id = shortcode_to_media_id(shortcode)
             log.debug("processing reel %s (media %s)", shortcode, media_id)
             likers_res = extract_likers(media_id)
+            if likers_res.get("status") == "expired":
+                return {"status": "expired", "candidates": candidates}
             if likers_res.get("status") != "ok":
                 log.debug("skip reel %s: likers status %s", shortcode, likers_res.get("status"))
                 continue
@@ -62,20 +71,45 @@ def collect_candidates(max_needed, max_reel_calls, my_followers):
                 if len(candidates) >= max_needed:
                     break
 
-    return candidates
+    return {"status": "ok", "candidates": candidates}
 
 
 def run(max_follows=50, delay_min=30, delay_max=90, max_reel_calls=20, dry_run=False):
+    """Execute the full flow, persisting any refreshed cookies on exit."""
+    try:
+        return _run(max_follows, delay_min, delay_max, max_reel_calls, dry_run)
+    finally:
+        # Save any session values IG rotated during this run, even on abort.
+        persist_cookies()
+
+
+def _run(max_follows, delay_min, delay_max, max_reel_calls, dry_run):
     """Execute the full flow. Returns a summary dict."""
     log.info(
         "run start: max_follows=%s delay=%s-%ss max_reel_calls=%s dry_run=%s",
         max_follows, delay_min, delay_max, max_reel_calls, dry_run,
     )
 
-    my_followers = get_my_followers()
+    # Refresh short-lived page tokens (lsd/fb_dtsg/csrftoken) up front so the
+    # GraphQL calls below use current values.
+    token_res = refresh_page_tokens()
+    if token_res["status"] == "expired":
+        log.error("aborting run: Instagram cookies expired at token refresh — refresh them")
+        return {"status": "expired", "candidates_found": 0, "followed_count": 0, "followed": []}
+
+    my_followers_res = get_my_followers()
+    if my_followers_res["status"] == "expired":
+        log.error("aborting run: Instagram cookies expired while fetching my followers — refresh them")
+        return {"status": "expired", "candidates_found": 0, "followed_count": 0, "followed": []}
+    my_followers = my_followers_res["followers"]
     log.info("my_followers set size: %d", len(my_followers))
 
-    candidates = collect_candidates(max_follows, max_reel_calls, my_followers)
+    collected = collect_candidates(max_follows, max_reel_calls, my_followers)
+    if collected["status"] == "expired":
+        log.error("aborting run: Instagram cookies expired — refresh them")
+        return {"status": "expired", "candidates_found": 0, "followed_count": 0, "followed": []}
+
+    candidates = collected["candidates"]
     if len(candidates) < max_follows:
         log.warning(
             "collected only %d/%d candidates (reels/likers exhausted or heavily filtered)",
@@ -85,23 +119,32 @@ def run(max_follows=50, delay_min=30, delay_max=90, max_reel_calls=20, dry_run=F
         log.info("collected %d candidates", len(candidates))
 
     followed = []
+    expired = False
     targets = candidates[:max_follows]
     for i, user in enumerate(targets):
         if dry_run:
             log.info("[dry_run] would follow %s (%s)", user["username"], user["user_id"])
             followed.append({"user_id": user["user_id"], "username": user["username"], "dry_run": True})
-        else:
-            log.info("following %s (%s) [%d/%d]", user["username"], user["user_id"], i + 1, len(targets))
-            result = send_follow(user["user_id"])
-            if result.get("status") == "error" or result.get("errors"):
-                log.warning("follow failed for %s: %s", user["username"], result)
-            followed.append({"user_id": user["user_id"], "username": user["username"], "result": result})
-            if i < len(targets) - 1:
-                time.sleep(random.uniform(delay_min, delay_max))
+            continue
 
-    log.info("run done: followed %d of %d candidates", len(followed), len(candidates))
+        log.info("following %s (%s) [%d/%d]", user["username"], user["user_id"], i + 1, len(targets))
+        result = send_follow(user["user_id"])
+
+        if result.get("status") == "expired":
+            log.error("aborting run: Instagram cookies expired mid-follow — refresh them")
+            expired = True
+            break
+
+        if result.get("status") == "error" or result.get("errors"):
+            log.warning("follow failed for %s: %s", user["username"], result)
+        followed.append({"user_id": user["user_id"], "username": user["username"], "result": result})
+        if i < len(targets) - 1:
+            time.sleep(random.uniform(delay_min, delay_max))
+
+    status = "expired" if expired else "ok"
+    log.info("run done (%s): followed %d of %d candidates", status, len(followed), len(candidates))
     return {
-        "status": "ok",
+        "status": status,
         "candidates_found": len(candidates),
         "followed_count": len(followed),
         "followed": followed,

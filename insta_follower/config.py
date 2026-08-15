@@ -16,6 +16,10 @@ HEADER_TEMPLATES = os.environ.get("HEADER_TEMPLATES", "header_templates.json")
 # Local cookie file used when LOCAL is True.
 LOCAL_SETTINGS = os.environ.get("LOCAL_SETTINGS", "local_settings.json")
 
+# SSM Parameter Store name holding the Instagram cookies JSON (SecureString),
+# used when running on Lambda.
+COOKIES_PARAM = os.environ.get("COOKIES_PARAM", "/insta-follower/cookies")
+
 
 # ---------------------------------------------------------------------------
 # Logging

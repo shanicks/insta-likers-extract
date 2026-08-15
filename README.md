@@ -47,5 +47,27 @@ Event fields (all optional): `max_follows`, `delay_min`, `delay_max`,
 Environment variables:
 - `LOG_LEVEL` - logging level (default INFO)
 - `HEADER_TEMPLATES`, `LOCAL_SETTINGS` - override default file paths
+- `COOKIES_PARAM` - SSM Parameter Store name for the cookies JSON on Lambda
+  (default `/insta-follower/cookies`)
 
 Filter thresholds live in `insta_follower/config.py` (`FOLLOW_FILTER`).
+
+## Secrets on Lambda
+
+Cookies are read from an SSM Parameter Store SecureString (locally from
+`local_settings.json`). Create/update the parameter from your local file:
+
+```powershell
+aws ssm put-parameter --name /insta-follower/cookies --type SecureString `
+  --value file://local_settings.json --overwrite
+```
+
+Or refresh cookies straight from a copied cURL in one step (merges into the
+existing parameter, preserving fields not in the cURL):
+
+```powershell
+venv\Scripts\python tools\parse_curl.py curl.txt --ssm
+```
+
+Grant the Lambda execution role `ssm:GetParameter` on that parameter (and
+`kms:Decrypt` if using a customer-managed KMS key).

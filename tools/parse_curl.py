@@ -17,6 +17,10 @@ Usage:
 
     # write/merge straight into local_settings.json
     python parse_curl.py curl.txt --write
+
+    # merge straight into the SSM SecureString the Lambda reads (one step)
+    python parse_curl.py curl.txt --ssm
+    python parse_curl.py curl.txt --ssm /custom/param/name
 """
 
 import argparse
@@ -123,11 +127,44 @@ def merge_into_settings(parsed: dict, path: str = "local_settings.json") -> dict
     return settings
 
 
+def merge_into_ssm(parsed: dict, param_name: str) -> dict:
+    """Merge parsed values into an existing SSM SecureString parameter.
+
+    Reads the current parameter (so fields not in the curl, e.g. email/lsd,
+    are preserved), applies the parsed values, and writes it back.
+    """
+    import boto3
+
+    ssm = boto3.client("ssm")
+    try:
+        current = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        settings = json.loads(current["Parameter"]["Value"])
+    except ssm.exceptions.ParameterNotFound:
+        settings = {}
+
+    settings.update(parsed)
+    ssm.put_parameter(
+        Name=param_name,
+        Value=json.dumps(settings),
+        Type="SecureString",
+        Overwrite=True,
+    )
+    return settings
+
+
 def main():
     ap = argparse.ArgumentParser(description="Parse a cURL command into IG settings.")
     ap.add_argument("source", help="Path to a file with the curl command, or '-' for stdin.")
     ap.add_argument("--write", action="store_true", help="Merge into local_settings.json.")
     ap.add_argument("--settings", default="local_settings.json", help="Settings file path.")
+    ap.add_argument(
+        "--ssm",
+        nargs="?",
+        const="/insta-follower/cookies",
+        metavar="PARAM_NAME",
+        help="Merge into an SSM SecureString parameter (default name "
+        "/insta-follower/cookies). Requires AWS credentials.",
+    )
     args = ap.parse_args()
 
     if args.source == "-":
@@ -141,12 +178,17 @@ def main():
         print("No recognizable fields found. Is this a valid curl command?", file=sys.stderr)
         sys.exit(1)
 
-    if args.write:
+    if args.ssm:
+        merged = merge_into_ssm(parsed, args.ssm)
+        print(f"Updated SSM parameter {args.ssm} with: {', '.join(sorted(parsed))}")
+        # Don't print secret values back for the remote store.
+        print(f"Parameter now has keys: {', '.join(sorted(merged))}")
+    elif args.write:
         merged = merge_into_settings(parsed, args.settings)
         print(f"Updated {args.settings} with: {', '.join(sorted(parsed))}")
         print(json.dumps(merged, indent=2))
     else:
-        print("Parsed values (use --write to merge into local_settings.json):")
+        print("Parsed values (use --write for local file or --ssm for Parameter Store):")
         print(json.dumps(parsed, indent=2))
 
 
